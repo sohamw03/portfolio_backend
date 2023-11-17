@@ -5,7 +5,14 @@ export const dynamic = "force-dynamic";
 
 const RESEND_API_KEY = process.env.RESEND_API_KEY;
 
-export async function POST(req: NextRequest) {
+export async function POST(req: NextRequest, res: NextResponse) {
+  // Allow for all (*) or restrict it to certain domains
+  res.headers.set("Access-Control-Allow-Origin", "*");
+  // Methods you want to allow
+  res.headers.set("Access-Control-Allow-Methods", "GET, POST, PUT, DELETE, OPTIONS");
+  // Headers you want to allow
+  res.headers.set("Access-Control-Allow-Headers", "Content-Type, Authorization");
+
   const { name, email, message } = await req.json();
   try {
     // const response = await fetch("https://api.resend.com/emails", {
