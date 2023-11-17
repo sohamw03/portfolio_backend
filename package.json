@@ -1,22 +1,14 @@
 {
   "name": "mail_edge_function",
-  "version": "0.1.0",
-  "private": true,
-  "scripts": {
-    "dev": "next dev",
-    "build": "next build",
-    "start": "next start",
-    "lint": "next lint"
-  },
+  "version": "1.0.0",
+  "main": "index.js",
+  "repository": "https://github.com/sohamw03/mail_edge_function.git",
+  "author": "Somatitoa <102748742+Somatitoa@users.noreply.github.com>",
+  "license": "MIT",
   "dependencies": {
-    "next": "14.0.3",
-    "react": "^18",
-    "react-dom": "^18"
-  },
-  "devDependencies": {
-    "@types/node": "^20",
-    "@types/react": "^18",
-    "@types/react-dom": "^18",
-    "typescript": "^5"
+    "cors": "^2.8.5",
+    "dotenv": "^16.3.1",
+    "express": "^4.18.2",
+    "nodemon": "^3.0.1"
   }
 }
