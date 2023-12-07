@@ -2,6 +2,7 @@ const express = require("express");
 const app = express();
 const cors = require("cors");
 const dotenv = require("dotenv").config();
+const { emailTemplate } = require("./template/EmailTemplate.js");
 
 const RESEND_API_KEY = process.env.RESEND_API_KEY;
 
@@ -21,8 +22,8 @@ app.post("/api/mail", async (req, res) => {
       body: JSON.stringify({
         from: "Portfolio Mailing System <pms@resend.dev>",
         to: ["waghmare.22111255@viit.ac.in"],
-        subject: `${name}`,
-        html: `<p>${message}</p><p>${email}</p>`,
+        subject: `${name} sent you a message!`,
+        html: emailTemplate(name, email, message),
       }),
     });
     const responseJson = await response.json();
