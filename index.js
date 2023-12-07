@@ -9,6 +9,10 @@ const RESEND_API_KEY = process.env.RESEND_API_KEY;
 app.use(express.json());
 app.use(cors({ origin: "*", methods: "GET, POST, PUT, DELETE, OPTIONS", allowedHeaders: "Content-Type, Authorization" }));
 
+app.get("/", (req, res) => {
+  res.send("Portfolio Mailing System is online 👍");
+});
+
 app.post("/api/mail", async (req, res) => {
   const { name, email, message } = req.body;
   console.log(name, email, message, RESEND_API_KEY);
