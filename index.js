@@ -17,6 +17,10 @@ app.get("/", (req, res) => {
 app.post("/api/mail", async (req, res) => {
   const { name, email, message, api_secret_key } = req.body;
   console.log(name, email, message, RESEND_API_KEY);
+  if (api_secret_key !== API_SECRET_KEY) {
+    return res.status(401).json({ error: "Unauthorized" });
+  }
+
   try {
     const response = await fetch("https://api.resend.com/emails", {
       method: "POST",
