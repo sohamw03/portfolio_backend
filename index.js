@@ -5,16 +5,17 @@ const dotenv = require("dotenv").config();
 const { emailTemplate } = require("./template/EmailTemplate.js");
 
 const RESEND_API_KEY = process.env.RESEND_API_KEY;
+const API_SECRET_KEY = process.env.API_SECRET_KEY;
 
 app.use(express.json());
-app.use(cors({ origin: "*", methods: "GET, POST, PUT, DELETE, OPTIONS", allowedHeaders: "Content-Type, Authorization" }));
+app.use(cors({ origin: ["https://sohamw.tech", "https://sohamw03.github.io"], methods: "GET, POST, PUT, DELETE, OPTIONS", allowedHeaders: "Content-Type, Authorization" }));
 
 app.get("/", (req, res) => {
   res.send("Portfolio Mailing System is online 👍");
 });
 
 app.post("/api/mail", async (req, res) => {
-  const { name, email, message } = req.body;
+  const { name, email, message, api_secret_key } = req.body;
   console.log(name, email, message, RESEND_API_KEY);
   try {
     const response = await fetch("https://api.resend.com/emails", {
