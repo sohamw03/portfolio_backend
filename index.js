@@ -29,7 +29,7 @@ app.post("/api/mail", async (req, res) => {
         Authorization: `Bearer ${RESEND_API_KEY}`,
       },
       body: JSON.stringify({
-        from: "Portfolio Mailing System <pms@resend.dev>",
+        from: "Portfolio Mailing System <soham@resend.dev>",
         to: ["waghmare.22111255@viit.ac.in"],
         subject: `${name} sent you a message!`,
         html: emailTemplate(name, email, message),
