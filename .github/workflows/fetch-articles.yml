@@ -21,12 +21,12 @@ jobs:
         run: bun install
 
       - name: Install Playwright browsers
-        run: bun run playwright install --with-deps
+        run: bun run playwright install chromium --with-deps
 
       - name: Run scraping script
-        run: node scrapeBrutalist.js # Your Playwright script
+        run: node scrapeBrutalist.js
         env:
           NODE_ENV: production
           MONGODB_URI: ${{ secrets.MONGODB_URI }}
-          MONGODB_DB_NAME: ${{ secrets.MONGODB_DB_NAME }} # Optional: or use script default
-          MONGODB_COLLECTION_NAME: ${{ secrets.MONGODB_COLLECTION_NAME }} # Optional: or use script default
+          MONGODB_DB_NAME: ${{ secrets.MONGODB_DB_NAME }}
+          MONGODB_COLLECTION_NAME: ${{ secrets.MONGODB_COLLECTION_NAME }}
