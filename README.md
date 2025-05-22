@@ -1,1 +1,1 @@
-# NodeJS API for mailing [portfolio](https://sohamw.tech) messages.
+# NodeJS backend for [portfolio](https://sohamw.vercel.app).

@@ -1,0 +1,32 @@
+name: Fetch Brutalist Report Articles
+
+on:
+  schedule:
+    - cron: "0 */3 * * *"
+  workflow_dispatch:
+
+jobs:
+  fetch-articles:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Bun
+        uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: latest
+
+      - name: Install dependencies
+        run: bun install
+
+      - name: Install Playwright browsers
+        run: bun run playwright install --with-deps
+
+      - name: Run scraping script
+        run: node scrapeBrutalist.js # Your Playwright script
+        env:
+          NODE_ENV: production
+          MONGODB_URI: ${{ secrets.MONGODB_URI }}
+          MONGODB_DB_NAME: ${{ secrets.MONGODB_DB_NAME }} # Optional: or use script default
+          MONGODB_COLLECTION_NAME: ${{ secrets.MONGODB_COLLECTION_NAME }} # Optional: or use script default

@@ -1,17 +1,56 @@
-const express = require("express");
+import cors from "cors";
+import "dotenv/config";
+import express, { json } from "express";
+import { MongoClient } from "mongodb"; // Added MongoDB import
+import { emailTemplate } from "./template/EmailTemplate.js";
 const app = express();
-const cors = require("cors");
-const dotenv = require("dotenv").config();
-const { emailTemplate } = require("./template/EmailTemplate.js");
 
 const RESEND_API_KEY = process.env.RESEND_API_KEY;
 const API_SECRET_KEY = process.env.API_SECRET_KEY;
 
-app.use(express.json());
-app.use(cors({ origin: ["https://sohamw.tech", "https://sohamw03.github.io"], methods: "GET, POST, PUT, DELETE, OPTIONS", allowedHeaders: "Content-Type, Authorization" }));
+// MongoDB Configuration
+const MONGODB_URI = process.env.MONGODB_URI || "mongodb://127.0.0.1:27017/";
+const MONGODB_DB_NAME = process.env.MONGODB_DB_NAME || "brutalist_report";
+const MONGODB_COLLECTION_NAME = process.env.MONGODB_COLLECTION_NAME || "articles";
+
+app.use(json());
+app.use(cors({ origin: ["https://sohamw.vercel.app", "https://sohamw03.github.io"], methods: "GET, POST", allowedHeaders: "Content-Type, Authorization" }));
 
 app.get("/", (req, res) => {
-  res.send("Portfolio Mailing System is online 👍");
+  res.send("Portfolio Backend is online 👍");
+});
+
+// New route to get Hacker News articles - Modified to use MongoDB
+app.get("/api/hn-articles", async (req, res) => {
+  let mongoClient;
+  try {
+    mongoClient = new MongoClient(MONGODB_URI);
+    await mongoClient.connect();
+    const db = mongoClient.db(MONGODB_DB_NAME);
+    const collection = db.collection(MONGODB_COLLECTION_NAME);
+
+    // Fetch all articles, sorted by scrapedAt descending if needed, or by sourceName
+    const articlesFromDB = await collection.find({}).sort({ _id: 1 }).toArray();
+
+    // Group articles by sourceName for the frontend
+    const articlesBySource = articlesFromDB.reduce((acc, article) => {
+      const { sourceName, ...rest } = article;
+      if (!acc[sourceName]) {
+        acc[sourceName] = [];
+      }
+      acc[sourceName].push(rest);
+      return acc;
+    }, {});
+
+    res.json(articlesBySource);
+  } catch (err) {
+    console.error("Failed to fetch articles from MongoDB:", err);
+    res.status(500).json({ error: "Could not load articles from database." });
+  } finally {
+    if (mongoClient) {
+      await mongoClient.close();
+    }
+  }
 });
 
 app.post("/api/mail", async (req, res) => {
@@ -48,9 +87,9 @@ app.post("/api/mail", async (req, res) => {
   }
 });
 
-app.listen(3000, () => {
-  console.log("Server is running on port 3000");
+app.listen(8000, () => {
+  console.log("Server is running on port 8000");
 });
 
 // Export the Express API
-module.exports = app;
+export default app;
