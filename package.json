@@ -2,6 +2,7 @@
   "name": "portfolio_backend",
   "version": "1.0.0",
   "main": "index.js",
+  "type": "module",
   "repository": "https://github.com/sohamw03/mail_edge_function.git",
   "author": "Soham <S102748742+sohamw03@users.noreply.github.com>",
   "license": "MIT",

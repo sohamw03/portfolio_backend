@@ -19,4 +19,4 @@ function emailTemplate(name, email, message) {
 </html>`;
 }
 
-module.exports = { emailTemplate };
+export { emailTemplate };
