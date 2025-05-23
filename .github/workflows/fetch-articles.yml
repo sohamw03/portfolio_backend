@@ -1,9 +1,12 @@
 name: Fetch Brutalist Report Articles
 
 on:
-  schedule:
-    - cron: "0 */3 * * *"
+  schedule: # Every 3 hours and on push
+    - cron: '0 */3 * * *'
   workflow_dispatch:
+  push:
+    branches:
+      - master
 
 jobs:
   fetch-articles:
@@ -17,10 +20,24 @@ jobs:
         with:
           bun-version: latest
 
+      - name: Get Playwright version
+        id: playwright-version
+        run: echo "PLAYWRIGHT_VERSION=$(bun run playwright --version | awk ''{print $2}'')" >> $GITHUB_ENV
+
+      - name: Cache Playwright browsers
+        uses: actions/cache@v4
+        id: playwright-cache
+        with:
+          path: ~/.cache/ms-playwright
+          key: ${{ runner.os }}-playwright-${{ env.PLAYWRIGHT_VERSION }}
+          restore-keys: |
+            ${{ runner.os }}-playwright-
+
       - name: Install dependencies
         run: bun install
 
       - name: Install Playwright browsers
+        if: steps.playwright-cache.outputs.cache-hit != 'true'
         run: bun run playwright install chromium --with-deps
 
       - name: Run scraping script
