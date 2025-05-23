@@ -21,10 +21,6 @@ async function scrapeBrutalistReport() {
     const db = mongoClient.db(MONGODB_DB_NAME);
     const collection = db.collection(MONGODB_COLLECTION_NAME);
 
-    console.log(`[MongoDB] Clearing old articles from ${MONGODB_COLLECTION_NAME}...`);
-    await collection.deleteMany({});
-    console.log("[MongoDB] Old articles cleared.");
-
     const browser = await chromium.launch({ headless: true });
     const context = await browser.newContext({
       userAgent: "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36",
@@ -136,6 +132,11 @@ async function scrapeBrutalistReport() {
     }
 
     console.log("Article processing (including selective screenshots) finished.");
+
+    // Empty the MongoDB collection before inserting new articles to ensure the DB is not empty during screenshot capture
+    console.log(`[MongoDB] Clearing old articles from ${MONGODB_COLLECTION_NAME} before inserting new batch...`);
+    await collection.deleteMany({});
+    console.log("[MongoDB] Old articles cleared for fresh insertion.");
 
     if (allArticles.length > 0) {
       const articlesToInsert = allArticles.map((art) => ({

@@ -1,12 +1,9 @@
 import cors from "cors";
 import "dotenv/config";
 import express, { json } from "express";
-import fs from "fs/promises"; // Added fs/promises import
 import { MongoClient } from "mongodb"; // Added MongoDB import
 import { emailTemplate } from "./template/EmailTemplate.js";
 const app = express();
-
-const CACHE_FILE_PATH = "./articles_cache.json"; // Defined cache file path
 
 const RESEND_API_KEY = process.env.RESEND_API_KEY;
 const API_SECRET_KEY = process.env.API_SECRET_KEY;
@@ -46,34 +43,16 @@ app.get("/api/hn-articles", async (req, res) => {
         return acc;
       }, {});
 
-      // Save to cache
-      fs.writeFile(CACHE_FILE_PATH, JSON.stringify(articlesBySource))
-        .then(() => console.log("Articles cached successfully."))
-        .catch(cacheWriteErr => console.error("Cache write error:", cacheWriteErr)); // Log cache write error but don't block response
-
-      return res.json(articlesBySource); // Respond with DB data even if cache write fails
+      return res.json(articlesBySource); // Respond with DB data
     } else {
-      // Handle empty articlesFromDB by attempting to read from cache
-      console.log("No articles fetched from MongoDB, attempting to read from cache.");
-      throw new Error("No articles from DB"); // Trigger catch block for cache fallback
+      // No articles found in the database
+      console.log("No articles fetched from MongoDB.");
+      return res.status(404).json({ message: "No articles found" });
     }
-  } catch (dbOrLogicErr) { // Renamed to clarify this catches DB errors or the "No articles from DB" error
-    console.error("MongoDB fetch error or initial logic failure:", dbOrLogicErr.message);
-    try {
-      console.log("Attempting to serve articles from cache due to previous error.");
-      const cachedData = await fs.readFile(CACHE_FILE_PATH, 'utf-8');
-      try {
-        const cachedArticles = JSON.parse(cachedData);
-        console.log("Serving articles from cache.");
-        return res.json(cachedArticles);
-      } catch (parseErr) {
-        console.error("Cache parse error:", parseErr);
-        return res.status(500).json({ error: "Could not load articles from database or cache." });
-      }
-    } catch (cacheReadErr) {
-      console.error("Cache read error:", cacheReadErr);
-      return res.status(500).json({ error: "Could not load articles from database or cache." });
-    }
+  } catch (error) {
+    // Renamed to clarify this catches DB errors or the "No articles from DB" error
+    console.error("Error fetching articles from MongoDB:", error);
+    return res.status(500).json({ error: "Failed to fetch articles from database." });
   } finally {
     if (mongoClient) {
       await mongoClient.close();
