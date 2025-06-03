@@ -180,7 +180,8 @@ app.post("/api/chat", async (req, res) => {
       //   }),
       // },
     });
-    result.pipeTextStreamToResponse(res);
+    const text = await result.text();
+    res.json({ response: text });
   } catch (error) {
     console.error("Error in /api/chat:", error);
     res.status(500).send(`Error: ${error.message || "An unknown error occurred"}`);
