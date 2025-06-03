@@ -1,8 +1,12 @@
 import cors from "cors";
 import "dotenv/config";
 import express, { json } from "express";
-import { MongoClient } from "mongodb"; // Added MongoDB import
+import { MongoClient } from "mongodb";
 import { emailTemplate } from "./template/EmailTemplate.js";
+import { createDataStream, streamText, tool } from "ai";
+import { createGoogleGenerativeAI } from "@ai-sdk/google";
+import { z } from "zod";
+
 const app = express();
 
 const RESEND_API_KEY = process.env.RESEND_API_KEY;
@@ -13,8 +17,35 @@ const MONGODB_URI = process.env.MONGODB_URI || "mongodb://127.0.0.1:27017/";
 const MONGODB_DB_NAME = process.env.MONGODB_DB_NAME || "brutalist_report";
 const MONGODB_COLLECTION_NAME = process.env.MONGODB_COLLECTION_NAME || "articles";
 
+const tools = [
+  {
+    name: "getPortfolioValue",
+    description: "Fetches the current portfolio value for a user.",
+    parameters: {
+      type: "object",
+      properties: {
+        userId: { type: "string", description: "User ID" },
+      },
+      required: ["userId"],
+    },
+    execute: async ({ userId }) => {
+      // Dummy portfolio value
+      return { value: "$10,000", userId };
+    },
+  },
+];
+const google = createGoogleGenerativeAI({
+  apiKey: process.env.GOOGLE_API_KEY,
+});
+
 app.use(json());
-app.use(cors({ origin: ["https://sohamw.vercel.app", "https://sohamw03.github.io"], methods: "GET, POST", allowedHeaders: "Content-Type, Authorization" }));
+app.use(
+  cors({
+    origin: ["http://127.0.0.1:3000", "http://localhost:3000", "http://localhost:8000", "https://sohamw.vercel.app", "https://sohamw03.github.io"],
+    methods: "GET, POST",
+    allowedHeaders: "Content-Type, Authorization",
+  })
+);
 
 app.get("/", (req, res) => {
   res.send("Portfolio Backend is online 👍");
@@ -94,8 +125,70 @@ app.post("/api/mail", async (req, res) => {
   }
 });
 
-app.listen(3000, () => {
-  console.log("Server is running on port 3000");
+// POST handler for /api/chat
+app.post("/api/chat", async (req, res) => {
+  const { messages } = req.body;
+
+  if (!messages || !Array.isArray(messages)) {
+    return res.status(400).json({ error: "Messages array is required" });
+  }
+  try {
+    const result = streamText({
+      model: google("gemini-1.5-flash"),
+      messages: messages,
+      system: "You are Soham's AI portfolio assistant. You can help visitors learn about Soham's work and send messages to him. When someone wants to send a message to Soham, use the send_message tool. Keep responses concise and helpful.",
+      // maxSteps: 5,
+      // tools: {
+      //   send_message: tool({
+      //     description: "Send a message to Soham. Use this when the user wants to contact him, send him a message, or leave feedback.",
+      //     parameters: z.object({
+      //       name: z.string().describe("The sender's name (ask if not provided)"),
+      //       email: z.string().email().describe("The sender's email address (ask if not provided)"),
+      //       message: z.string().describe("The message content to send to Soham"),
+      //     }),
+      //     execute: async ({ name, email, message }) => {
+      //       try {
+      //         console.log("Tool executing with:", { name, email, message });
+
+      //         // Send email using existing mail API logic
+      //         const emailResponse = await fetch("https://api.resend.com/emails", {
+      //           method: "POST",
+      //           headers: {
+      //             "Content-Type": "application/json",
+      //             Authorization: `Bearer ${RESEND_API_KEY}`,
+      //           },
+      //           body: JSON.stringify({
+      //             from: "Portfolio Mailing System <soham@resend.dev>",
+      //             to: ["waghmare.22111255@viit.ac.in"],
+      //             subject: `${name} sent you a message via AI Assistant!`,
+      //             html: emailTemplate(name, email, message),
+      //           }),
+      //         });
+
+      //         console.log("Email response status:", emailResponse.status);
+
+      //         if (emailResponse.ok) {
+      //           return "Message sent successfully to Soham! He'll get back to you soon.";
+      //         } else {
+      //           return "Failed to send message. Please try again later.";
+      //         }
+      //       } catch (error) {
+      //         console.error("Error sending email:", error);
+      //         return "Error sending message. Please try again later.";
+      //       }
+      //     },
+      //   }),
+      // },
+    });
+    result.pipeTextStreamToResponse(res);
+  } catch (error) {
+    console.error("Error in /api/chat:", error);
+    res.status(500).send(`Error: ${error.message || "An unknown error occurred"}`);
+  }
+});
+
+app.listen(8000, () => {
+  console.log("Server is running on port 8000");
 });
 
 // Export the Express API
