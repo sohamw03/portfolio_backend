@@ -3,7 +3,7 @@ import "dotenv/config";
 import express, { json } from "express";
 import { MongoClient } from "mongodb";
 import { emailTemplate } from "./template/EmailTemplate.js";
-import { createDataStream, streamText, tool } from "ai";
+import { createDataStream, generateText, tool } from "ai";
 import { createGoogleGenerativeAI } from "@ai-sdk/google";
 import { z } from "zod";
 
@@ -12,36 +12,37 @@ const app = express();
 const RESEND_API_KEY = process.env.RESEND_API_KEY;
 const API_SECRET_KEY = process.env.API_SECRET_KEY;
 
+// CORS Configuration
+const CORS_ORIGINS = process.env.CORS_ORIGINS ? process.env.CORS_ORIGINS.split(",").map((origin) => origin.trim()) : [];
+
 // MongoDB Configuration
 const MONGODB_URI = process.env.MONGODB_URI || "mongodb://127.0.0.1:27017/";
 const MONGODB_DB_NAME = process.env.MONGODB_DB_NAME || "brutalist_report";
 const MONGODB_COLLECTION_NAME = process.env.MONGODB_COLLECTION_NAME || "articles";
 
-const tools = [
-  {
-    name: "getPortfolioValue",
-    description: "Fetches the current portfolio value for a user.",
-    parameters: {
-      type: "object",
-      properties: {
-        userId: { type: "string", description: "User ID" },
-      },
-      required: ["userId"],
-    },
-    execute: async ({ userId }) => {
-      // Dummy portfolio value
-      return { value: "$10,000", userId };
-    },
-  },
-];
 const google = createGoogleGenerativeAI({
   apiKey: process.env.GOOGLE_API_KEY,
 });
 
+// Function to fetch portfolio data from GitHub
+const fetchPortfolioData = async () => {
+  try {
+    const response = await fetch("https://raw.githubusercontent.com/sohamw03/sohamw03.github.io/267b2f5c02b2a6e8f0973b256951f1de6052f7e6/src/data.js");
+    if (!response.ok) {
+      throw new Error(`HTTP error! status: ${response.status}`);
+    }
+    const data = await response.text();
+    return data;
+  } catch (error) {
+    console.error("Error fetching portfolio data:", error);
+    return "Portfolio data could not be loaded at this time.";
+  }
+};
+
 app.use(json());
 app.use(
   cors({
-    origin: ["http://127.0.0.1:3000", "http://localhost:3000", "http://localhost:8000", "https://sohamw.vercel.app", "https://sohamw03.github.io"],
+    origin: CORS_ORIGINS,
     methods: "GET, POST",
     allowedHeaders: "Content-Type, Authorization",
   })
@@ -132,55 +133,77 @@ app.post("/api/chat", async (req, res) => {
   if (!messages || !Array.isArray(messages)) {
     return res.status(400).json({ error: "Messages array is required" });
   }
+
   try {
-    const result = streamText({
+    // Fetch portfolio data for context
+    const portfolioData = await fetchPortfolioData();
+
+    const result = generateText({
       model: google("gemini-1.5-flash"),
       messages: messages,
-      system: "You are Soham's AI portfolio assistant. You can help visitors learn about Soham's work and send messages to him. When someone wants to send a message to Soham, use the send_message tool. Keep responses concise and helpful.",
-      // maxSteps: 5,
-      // tools: {
-      //   send_message: tool({
-      //     description: "Send a message to Soham. Use this when the user wants to contact him, send him a message, or leave feedback.",
-      //     parameters: z.object({
-      //       name: z.string().describe("The sender's name (ask if not provided)"),
-      //       email: z.string().email().describe("The sender's email address (ask if not provided)"),
-      //       message: z.string().describe("The message content to send to Soham"),
-      //     }),
-      //     execute: async ({ name, email, message }) => {
-      //       try {
-      //         console.log("Tool executing with:", { name, email, message });
+      system: `You are Soham's AI portfolio assistant. You can help visitors learn about Soham's work and send messages to him. When someone wants to send a message to Soham, use the send_message tool. Keep responses concise and helpful.
 
-      //         // Send email using existing mail API logic
-      //         const emailResponse = await fetch("https://api.resend.com/emails", {
-      //           method: "POST",
-      //           headers: {
-      //             "Content-Type": "application/json",
-      //             Authorization: `Bearer ${RESEND_API_KEY}`,
-      //           },
-      //           body: JSON.stringify({
-      //             from: "Portfolio Mailing System <soham@resend.dev>",
-      //             to: ["waghmare.22111255@viit.ac.in"],
-      //             subject: `${name} sent you a message via AI Assistant!`,
-      //             html: emailTemplate(name, email, message),
-      //           }),
-      //         });
+Here is Soham's complete portfolio data for reference:
 
-      //         console.log("Email response status:", emailResponse.status);
+${portfolioData}
 
-      //         if (emailResponse.ok) {
-      //           return "Message sent successfully to Soham! He'll get back to you soon.";
-      //         } else {
-      //           return "Failed to send message. Please try again later.";
-      //         }
-      //       } catch (error) {
-      //         console.error("Error sending email:", error);
-      //         return "Error sending message. Please try again later.";
-      //       }
-      //     },
-      //   }),
-      // },
+Use this information to answer questions about Soham's projects, skills, experience, and achievements. Be specific and reference actual projects when relevant. Prefer to showcase AI projects, only show other projects if asked specifically about them.
+
+You can reference different sections of the portfolio as needed using these anchor links:
+- About section: #about
+- AI Projects: #ai-projects
+- Tech Stack: #tech-stack
+- Full-Stack Projects: #full-stack-projects
+- Experience: #experience
+- Achievements: #achievements
+
+When mentioning specific sections, use markdown link syntax like [AI Projects](#ai-projects) or [Experience](#experience). The frontend will automatically convert these to clickable anchor links. This helps users navigate directly to relevant content.
+
+Initially greet the user and provide an overview of Soham's AI projects. Ask if they want to send a message to him.`,
+      maxSteps: 5,
+      tools: {
+        send_message: tool({
+          description: "Send a message to Soham. Use this when the user wants to contact him, send him a message, or leave feedback.",
+          parameters: z.object({
+            name: z.string().describe("The sender's name (ask if not provided)"),
+            email: z.string().describe("The sender's email address (ask if not provided)"),
+            message: z.string().describe("The message content to send to Soham"),
+          }),
+          execute: async ({ name, email, message }) => {
+            try {
+              console.log("Tool executing with:", { name, email, message });
+
+              // Send email using existing mail API logic
+              const emailResponse = await fetch("https://api.resend.com/emails", {
+                method: "POST",
+                headers: {
+                  "Content-Type": "application/json",
+                  Authorization: `Bearer ${RESEND_API_KEY}`,
+                },
+                body: JSON.stringify({
+                  from: "Portfolio Mailing System <soham@resend.dev>",
+                  to: ["waghmare.22111255@viit.ac.in"],
+                  subject: `${name} sent you a message via your Portfolio Assistant!`,
+                  html: emailTemplate(name, email, message),
+                }),
+              });
+
+              console.log("Email response status:", emailResponse.status);
+
+              if (emailResponse.ok) {
+                return "Message sent successfully to Soham! He'll get back to you soon.";
+              } else {
+                return "Failed to send message. Please try again later.";
+              }
+            } catch (error) {
+              console.error("Error sending email:", error);
+              return "Error sending message. Please try again later.";
+            }
+          },
+        }),
+      },
     });
-    const text = await result.text();
+    const { text } = await result;
     res.json({ response: text });
   } catch (error) {
     console.error("Error in /api/chat:", error);
