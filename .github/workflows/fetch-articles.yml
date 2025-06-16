@@ -1,8 +1,9 @@
 name: Fetch Brutalist Report Articles
 
 on:
-  schedule: # Every 3 hours and on push
-    - cron: '0 */3 * * *'
+  # Every hour and on push
+  schedule:
+    - cron '0 * * * *'
   workflow_dispatch:
   push:
     branches:
