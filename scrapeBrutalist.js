@@ -18,12 +18,20 @@ const imagekit = new ImageKit({
 });
 
 const IMAGEKIT_TAG = "hnrss";
+const ENABLE_VERBOSE_LOGGING = false; // Set to false to reduce logging
 let mongoClient;
+
+// Custom logging function
+function log(message, force = false) {
+  if (ENABLE_VERBOSE_LOGGING || force) {
+    console.log(message);
+  }
+}
 
 // Helper function to delete old images with HNRSS tag from ImageKit
 async function deleteOldImagesFromImageKit() {
   try {
-    console.log("[ImageKit] Fetching existing images with tag:", IMAGEKIT_TAG);
+    log("[ImageKit] Fetching existing images with tag: " + IMAGEKIT_TAG);
 
     // Get all images with the HNRSS tag
     const listFiles = await imagekit.listFiles({
@@ -32,24 +40,24 @@ async function deleteOldImagesFromImageKit() {
     });
 
     if (listFiles.length === 0) {
-      console.log("[ImageKit] No existing images found with tag:", IMAGEKIT_TAG);
+      log("[ImageKit] No existing images found with tag: " + IMAGEKIT_TAG);
       return;
     }
 
-    console.log(`[ImageKit] Found ${listFiles.length} existing images to delete`);
+    log(`[ImageKit] Found ${listFiles.length} existing images to delete`);
 
     // Delete images in batches to avoid rate limits
     const deletePromises = listFiles.map(async (file) => {
       try {
         await imagekit.deleteFile(file.fileId);
-        console.log(`[ImageKit] Deleted: ${file.name}`);
+        log(`[ImageKit] Deleted: ${file.name}`);
       } catch (deleteError) {
         console.error(`[ImageKit] Failed to delete ${file.name}:`, deleteError.message);
       }
     });
 
     await Promise.all(deletePromises);
-    console.log("[ImageKit] Finished deleting old images");
+    log("[ImageKit] Finished deleting old images");
   } catch (error) {
     console.error("[ImageKit] Error deleting old images:", error.message);
     throw error;
@@ -68,7 +76,7 @@ async function uploadScreenshotToImageKit(screenshotBuffer, filename, articleTit
       useUniqueFileName: true
     });
 
-    console.log(`[ImageKit] Uploaded: ${filename} -> ${uploadResponse.url}`);
+    log(`[ImageKit] Uploaded: ${filename} -> ${uploadResponse.url}`);
     return uploadResponse.url;
   } catch (error) {
     console.error(`[ImageKit] Upload failed for ${filename}:`, error.message);
@@ -77,7 +85,7 @@ async function uploadScreenshotToImageKit(screenshotBuffer, filename, articleTit
 }
 
 async function scrapeBrutalistReport() {
-  console.log("Starting scrape...");
+  console.log("Starting scrape...", true);
 
   mongoClient = new MongoClient(MONGODB_URI);
 
@@ -86,7 +94,7 @@ async function scrapeBrutalistReport() {
     await deleteOldImagesFromImageKit();
 
     await mongoClient.connect();
-    console.log("[MongoDB] Connected successfully to server");
+    log("[MongoDB] Connected successfully to server");
     const db = mongoClient.db(MONGODB_DB_NAME);
     const collection = db.collection(MONGODB_COLLECTION_NAME);
 
@@ -99,12 +107,12 @@ async function scrapeBrutalistReport() {
     });
     const page = await context.newPage();
 
-    console.log(`Navigating to ${SITE_URL}`);
+    log(`Navigating to ${SITE_URL}`);
     await page.goto(SITE_URL, { waitUntil: "networkidle", timeout: 60000 });
-    console.log("Page loaded. Waiting for articles...");
+    log("Page loaded. Waiting for articles...");
 
     await page.waitForSelector("div.brutal-grid > div > ul", { timeout: 30000 });
-    console.log("Article container found.");
+    log("Article container found.");
 
     const articlesBySource = await page.evaluate(() => {
       const sources = {};
@@ -127,9 +135,9 @@ async function scrapeBrutalistReport() {
       return sources;
     });
 
-    console.log(`Found articles from ${Object.keys(articlesBySource).length} sources.`);
+    log(`Found articles from ${Object.keys(articlesBySource).length} sources.`);
 
-    console.log("Preparing articles from all sources...");
+    log("Preparing articles from all sources...");
 
     const allArticles = [];
     // Iterate over all sources and their articles
@@ -139,20 +147,20 @@ async function scrapeBrutalistReport() {
           // Add all articles, initialize screenshotUrl to null
           allArticles.push({ ...article, sourceName: sourceName, screenshotUrl: null });
         });
-        console.log(`Added ${articlesBySource[sourceName].length} articles from '${sourceName}'.`);
+        log(`Added ${articlesBySource[sourceName].length} articles from '${sourceName}'.`);
       }
     }
 
     if (allArticles.length > 0) {
-      console.log(`Total articles to process: ${allArticles.length}.`);
+      log(`Total articles to process: ${allArticles.length}.`);
     } else {
-      console.log("No articles found from any source to process.");
+      log("No articles found from any source to process.");
     }
 
     const BATCH_SIZE = 10;
     for (let i = 0; i < allArticles.length; i += BATCH_SIZE) {
       const batch = allArticles.slice(i, i + BATCH_SIZE);
-      console.log(`[Batch Processing] Processing batch ${Math.floor(i / BATCH_SIZE) + 1} of ${Math.ceil(allArticles.length / BATCH_SIZE)} (Articles ${i + 1} to ${Math.min(i + BATCH_SIZE, allArticles.length)})`);
+      log(`[Batch Processing] Processing batch ${Math.floor(i / BATCH_SIZE) + 1} of ${Math.ceil(allArticles.length / BATCH_SIZE)} (Articles ${i + 1} to ${Math.min(i + BATCH_SIZE, allArticles.length)})`);
 
       const batchPromises = batch.map(async (article, indexInBatch) => {
         const overallIndex = i + indexInBatch;
@@ -163,11 +171,11 @@ async function scrapeBrutalistReport() {
             newPage = await context.newPage();
             await newPage.setViewportSize({ width: 800, height: 600 });
 
-            console.log(`[Screenshot] Navigating to (Hacker News): ${article.link.substring(0, 70)}... (Article ${overallIndex + 1}/${allArticles.length})`);
+            log(`[Screenshot] Navigating to (Hacker News): ${article.link.substring(0, 70)}... (Article ${overallIndex + 1}/${allArticles.length})`);
             try {
               await newPage.goto(article.link, { waitUntil: "networkidle", timeout: 10000 });
             } catch (navError) {
-              console.warn(`[Screenshot] Navigation timeout/error for ${article.link.substring(0, 70)}... (Article ${overallIndex + 1}/${allArticles.length}): ${navError.message.split("\n")[0]}. Proceeding with screenshot.`);
+              log(`[Screenshot] Navigation timeout/error for ${article.link.substring(0, 70)}... (Article ${overallIndex + 1}/${allArticles.length}): ${navError.message.split("\n")[0]}. Proceeding with screenshot.`);
             }
 
             const safeTitle = article.title.replace(/[^a-z0-9\-_]/gi, "_").substring(0, 100);
@@ -178,19 +186,19 @@ async function scrapeBrutalistReport() {
               quality: 70,
               fullPage: false,
             });
-            console.log(`[Screenshot] Captured: ${filename} (Article ${overallIndex + 1}/${allArticles.length})`);
+            log(`[Screenshot] Captured: ${filename} (Article ${overallIndex + 1}/${allArticles.length})`);
 
             // Upload screenshot to ImageKit and get public URL
             try {
               article.screenshotUrl = await uploadScreenshotToImageKit(screenshotBuffer, filename, article.title);
-              console.log(`[ImageKit] Successfully uploaded and stored URL for: ${filename} (Article ${overallIndex + 1}/${allArticles.length})`);
+              log(`[ImageKit] Successfully uploaded and stored URL for: ${filename} (Article ${overallIndex + 1}/${allArticles.length})`);
             } catch (uploadError) {
               console.error(`[ImageKit] Failed to upload ${filename}: ${uploadError.message}`);
               article.screenshotUrl = null;
             }
           } else {
             // For non-Hacker News articles, log that screenshot is skipped
-            console.log(`[Data] Skipping screenshot for non-Hacker News article: ${article.title.substring(0, 50)}... (Source: ${article.sourceName}, Article ${overallIndex + 1}/${allArticles.length})`);
+            log(`[Data] Skipping screenshot for non-Hacker News article: ${article.title.substring(0, 50)}... (Source: ${article.sourceName}, Article ${overallIndex + 1}/${allArticles.length})`);
           }
         } catch (err) {
           console.error(`[Processing] General error for ${article.link.substring(0, 70)}... (Article ${overallIndex + 1}/${allArticles.length}): ${err.message.split("\n")[0]}`);
@@ -203,15 +211,15 @@ async function scrapeBrutalistReport() {
         }
       });
       await Promise.all(batchPromises);
-      console.log(`[Batch Processing] Finished batch ${Math.floor(i / BATCH_SIZE) + 1}.`);
+      log(`[Batch Processing] Finished batch ${Math.floor(i / BATCH_SIZE) + 1}.`);
     }
 
-    console.log("Article processing (including selective screenshots) finished.");
+    log("Article processing (including selective screenshots) finished.");
 
     // Empty the MongoDB collection before inserting new articles to ensure the DB is not empty during screenshot capture
-    console.log(`[MongoDB] Clearing old articles from ${MONGODB_COLLECTION_NAME} before inserting new batch...`);
+    log(`[MongoDB] Clearing old articles from ${MONGODB_COLLECTION_NAME} before inserting new batch...`);
     await collection.deleteMany({});
-    console.log("[MongoDB] Old articles cleared for fresh insertion.");
+    log("[MongoDB] Old articles cleared for fresh insertion.");
 
     if (allArticles.length > 0) {
       const articlesToInsert = allArticles.map((art) => ({
@@ -221,21 +229,21 @@ async function scrapeBrutalistReport() {
         screenshotUrl: art.screenshotUrl,
         scrapedAt: new Date(),
       }));
-      console.log(`[MongoDB] Inserting ${articlesToInsert.length} articles into ${MONGODB_COLLECTION_NAME}...`);
+      log(`[MongoDB] Inserting ${articlesToInsert.length} articles into ${MONGODB_COLLECTION_NAME}...`);
       await collection.insertMany(articlesToInsert);
-      console.log(`[MongoDB] Successfully inserted ${articlesToInsert.length} articles.`);
+      log(`[MongoDB] Successfully inserted ${articlesToInsert.length} articles.`);
     } else {
-      console.log("[MongoDB] No articles to insert.");
+      log("[MongoDB] No articles to insert.");
     }
 
     await browser.close();
-    console.log("Browser closed.");
+    log("Browser closed.");
   } catch (error) {
     console.error("Error during scraping process:", error);
   } finally {
     if (mongoClient) {
       await mongoClient.close();
-      console.log("[MongoDB] Connection closed.");
+      log("[MongoDB] Connection closed.");
     }
   }
 }
