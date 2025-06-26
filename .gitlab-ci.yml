@@ -4,7 +4,7 @@ stages:
   - fetch
 
 fetch-articles:
-  image: node:22
+  image: mcr.microsoft.com/playwright:v1.44.0-jammy
   rules:
     - if: $CI_PIPELINE_SOURCE == "schedule"
       when: always
