@@ -85,7 +85,7 @@ async function uploadScreenshotToImageKit(screenshotBuffer, filename, articleTit
 }
 
 async function scrapeBrutalistReport() {
-  console.log("Starting...", true);
+  log("Starting...", true);
 
   mongoClient = new MongoClient(MONGODB_URI);
 
