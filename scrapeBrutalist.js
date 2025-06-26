@@ -1,6 +1,7 @@
 import "dotenv/config";
 import { MongoClient } from "mongodb";
 import { chromium } from "playwright";
+import ImageKit from "imagekit";
 
 const SITE_URL = "https://brutalist.report/topic/tech?limit=100";
 
@@ -8,7 +9,72 @@ const SITE_URL = "https://brutalist.report/topic/tech?limit=100";
 const MONGODB_URI = process.env.MONGODB_URI || "mongodb://127.0.0.1:27017/";
 const MONGODB_DB_NAME = process.env.MONGODB_DB_NAME || "brutalist_report";
 const MONGODB_COLLECTION_NAME = process.env.MONGODB_COLLECTION_NAME || "articles";
+
+// ImageKit Configuration - ensure these are in your .env file
+const imagekit = new ImageKit({
+  publicKey: process.env.IMAGEKIT_PUBLIC_KEY,
+  privateKey: process.env.IMAGEKIT_PRIVATE_KEY,
+  urlEndpoint: process.env.IMAGEKIT_URL_ENDPOINT
+});
+
+const IMAGEKIT_TAG = "hnrss";
 let mongoClient;
+
+// Helper function to delete old images with HNRSS tag from ImageKit
+async function deleteOldImagesFromImageKit() {
+  try {
+    console.log("[ImageKit] Fetching existing images with tag:", IMAGEKIT_TAG);
+
+    // Get all images with the HNRSS tag
+    const listFiles = await imagekit.listFiles({
+      tags: IMAGEKIT_TAG,
+      limit: 1000 // Adjust as needed
+    });
+
+    if (listFiles.length === 0) {
+      console.log("[ImageKit] No existing images found with tag:", IMAGEKIT_TAG);
+      return;
+    }
+
+    console.log(`[ImageKit] Found ${listFiles.length} existing images to delete`);
+
+    // Delete images in batches to avoid rate limits
+    const deletePromises = listFiles.map(async (file) => {
+      try {
+        await imagekit.deleteFile(file.fileId);
+        console.log(`[ImageKit] Deleted: ${file.name}`);
+      } catch (deleteError) {
+        console.error(`[ImageKit] Failed to delete ${file.name}:`, deleteError.message);
+      }
+    });
+
+    await Promise.all(deletePromises);
+    console.log("[ImageKit] Finished deleting old images");
+  } catch (error) {
+    console.error("[ImageKit] Error deleting old images:", error.message);
+    throw error;
+  }
+}
+
+// Helper function to upload screenshot to ImageKit
+async function uploadScreenshotToImageKit(screenshotBuffer, filename, articleTitle) {
+  try {
+    const uploadResponse = await imagekit.upload({
+      file: screenshotBuffer,
+      fileName: filename,
+      tags: [IMAGEKIT_TAG],
+      folder: "/hnrss-screenshots/",
+      isPrivateFile: false,
+      useUniqueFileName: true
+    });
+
+    console.log(`[ImageKit] Uploaded: ${filename} -> ${uploadResponse.url}`);
+    return uploadResponse.url;
+  } catch (error) {
+    console.error(`[ImageKit] Upload failed for ${filename}:`, error.message);
+    throw error;
+  }
+}
 
 async function scrapeBrutalistReport() {
   console.log("Starting scrape...");
@@ -16,6 +82,9 @@ async function scrapeBrutalistReport() {
   mongoClient = new MongoClient(MONGODB_URI);
 
   try {
+    // Delete old images from ImageKit before starting
+    await deleteOldImagesFromImageKit();
+
     await mongoClient.connect();
     console.log("[MongoDB] Connected successfully to server");
     const db = mongoClient.db(MONGODB_DB_NAME);
@@ -67,8 +136,8 @@ async function scrapeBrutalistReport() {
     for (const sourceName in articlesBySource) {
       if (articlesBySource.hasOwnProperty(sourceName)) {
         articlesBySource[sourceName].forEach((article) => {
-          // Add all articles, initialize screenshotBase64 to null
-          allArticles.push({ ...article, sourceName: sourceName, screenshotBase64: null });
+          // Add all articles, initialize screenshotUrl to null
+          allArticles.push({ ...article, sourceName: sourceName, screenshotUrl: null });
         });
         console.log(`Added ${articlesBySource[sourceName].length} articles from '${sourceName}'.`);
       }
@@ -111,16 +180,22 @@ async function scrapeBrutalistReport() {
             });
             console.log(`[Screenshot] Captured: ${filename} (Article ${overallIndex + 1}/${allArticles.length})`);
 
-            article.screenshotBase64 = screenshotBuffer.toString("base64");
-            console.log(`[Data] Converted screenshot to Base64 for: ${filename} (Article ${overallIndex + 1}/${allArticles.length})`);
+            // Upload screenshot to ImageKit and get public URL
+            try {
+              article.screenshotUrl = await uploadScreenshotToImageKit(screenshotBuffer, filename, article.title);
+              console.log(`[ImageKit] Successfully uploaded and stored URL for: ${filename} (Article ${overallIndex + 1}/${allArticles.length})`);
+            } catch (uploadError) {
+              console.error(`[ImageKit] Failed to upload ${filename}: ${uploadError.message}`);
+              article.screenshotUrl = null;
+            }
           } else {
             // For non-Hacker News articles, log that screenshot is skipped
             console.log(`[Data] Skipping screenshot for non-Hacker News article: ${article.title.substring(0, 50)}... (Source: ${article.sourceName}, Article ${overallIndex + 1}/${allArticles.length})`);
           }
         } catch (err) {
           console.error(`[Processing] General error for ${article.link.substring(0, 70)}... (Article ${overallIndex + 1}/${allArticles.length}): ${err.message.split("\n")[0]}`);
-          // Ensure screenshotBase64 remains null if an error occurs during screenshotting attempt
-          article.screenshotBase64 = null;
+          // Ensure screenshotUrl remains null if an error occurs during processing
+          article.screenshotUrl = null;
         } finally {
           if (newPage) {
             await newPage.close();
@@ -143,7 +218,7 @@ async function scrapeBrutalistReport() {
         title: art.title,
         link: art.link,
         sourceName: art.sourceName,
-        screenshotBase64: art.screenshotBase64,
+        screenshotUrl: art.screenshotUrl,
         scrapedAt: new Date(),
       }));
       console.log(`[MongoDB] Inserting ${articlesToInsert.length} articles into ${MONGODB_COLLECTION_NAME}...`);
