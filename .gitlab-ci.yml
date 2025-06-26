@@ -1,0 +1,42 @@
+# .gitlab-ci.yml
+
+stages:
+  - fetch
+
+fetch-articles:
+  image: node:20
+
+  rules:
+    - if: $CI_PIPELINE_SOURCE == "schedule"
+      when: always
+
+    - if: $CI_PIPELINE_SOURCE == "web"
+      when: always
+
+    - if: $CI_COMMIT_BRANCH == "master" && $CI_PIPELINE_SOURCE == "push"
+      when: always
+
+  # Define cache for Playwright browsers.
+  cache:
+    key: ${CI_OS_NAME}-playwright-${PLAYWRIGHT_VERSION} # CI_OS_NAME is typically 'linux' for shared runners
+    paths:
+      - .cache/ms-playwright # Adjust this path if Playwright installs elsewhere in the Docker container
+    policy: pull-push # Default, but explicit for clarity
+
+  variables:
+    NODE_ENV: production
+
+  before_script:
+    - apt-get update && apt-get install -y curl
+    - curl -fsSL https://bun.sh/install | bash
+    - export PATH="$HOME/.bun/bin:$PATH"
+    - PLAYWRIGHT_VERSION=$(bun run playwright --version | awk '{print $2}')
+    - echo "Playwright version detected: $PLAYWRIGHT_VERSION" # For debugging
+    - bun install
+
+  script:
+    - bun run playwright install chromium --with-deps
+    - node scrapeBrutalist.js
+
+  stage: fetch
+
