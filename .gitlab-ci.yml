@@ -31,7 +31,6 @@ fetch-articles:
     - curl -fsSL https://bun.sh/install | bash
     - export PATH="$HOME/.bun/bin:$PATH"
     - PLAYWRIGHT_VERSION=$(bun run playwright --version | awk '{print $2}')
-    - echo "Playwright version detected: $PLAYWRIGHT_VERSION" # For debugging
     - bun install
 
   script:
