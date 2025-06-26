@@ -85,7 +85,7 @@ async function uploadScreenshotToImageKit(screenshotBuffer, filename, articleTit
 }
 
 async function scrapeBrutalistReport() {
-  console.log("Starting scrape...", true);
+  console.log("Starting...", true);
 
   mongoClient = new MongoClient(MONGODB_URI);
 
@@ -237,7 +237,7 @@ async function scrapeBrutalistReport() {
     }
 
     await browser.close();
-    log("Browser closed.");
+    log("Browser closed.", true);
   } catch (error) {
     console.error("Error during scraping process:", error);
   } finally {
