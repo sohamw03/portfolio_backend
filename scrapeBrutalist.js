@@ -179,10 +179,10 @@ async function scrapeBrutalistReport() {
             }
 
             const safeTitle = article.title.replace(/[^a-z0-9\-_]/gi, "_").substring(0, 100);
-            const filename = `${safeTitle}_${overallIndex}.jpg`; // Filename for logging
+            const filename = `${safeTitle}_${overallIndex}.webp`; // Filename for logging
 
             const screenshotBuffer = await newPage.screenshot({
-              type: "jpeg",
+              type: "webp",
               quality: 70,
               fullPage: false,
             });
