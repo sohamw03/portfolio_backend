@@ -1,7 +1,7 @@
 name: Fetch Brutalist Report Articles
 
 on:
-  schedule: # Every hour and on push
+  schedule: # Every 2 hours and on push
     - cron: "0 */2 * * *"
   workflow_dispatch:
   push:
