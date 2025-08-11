@@ -204,6 +204,32 @@ Initially greet the user and provide an overview of Soham's AI projects. Ask if 
       },
     });
     const { text } = await result;
+
+    // --- Save chat to MongoDB ---
+    let mongoClient;
+    try {
+      mongoClient = new MongoClient(MONGODB_URI);
+      await mongoClient.connect();
+      const db = mongoClient.db(MONGODB_DB_NAME);
+      const collection = db.collection("chats");
+
+      const chatDocument = {
+        history: messages,
+        bot_response: text,
+        timestamp: new Date(),
+      };
+
+      await collection.insertOne(chatDocument);
+    } catch (dbError) {
+      console.error("Failed to save chat to MongoDB:", dbError);
+      // As requested, log the error and continue without interrupting the user.
+    } finally {
+      if (mongoClient) {
+        await mongoClient.close();
+      }
+    }
+    // --- End of save chat logic ---
+
     res.json({ response: text });
   } catch (error) {
     console.error("Error in /api/chat:", error);
