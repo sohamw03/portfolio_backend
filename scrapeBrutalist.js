@@ -1,7 +1,7 @@
 import "dotenv/config";
+import ImageKit from "imagekit";
 import { MongoClient } from "mongodb";
 import { chromium } from "playwright";
-import ImageKit from "imagekit";
 
 const SITE_URL = "https://brutalist.report/topic/tech?limit=100";
 
@@ -14,11 +14,11 @@ const MONGODB_COLLECTION_NAME = process.env.MONGODB_COLLECTION_NAME || "articles
 const imagekit = new ImageKit({
   publicKey: process.env.IMAGEKIT_PUBLIC_KEY,
   privateKey: process.env.IMAGEKIT_PRIVATE_KEY,
-  urlEndpoint: process.env.IMAGEKIT_URL_ENDPOINT
+  urlEndpoint: process.env.IMAGEKIT_URL_ENDPOINT,
 });
 
 const IMAGEKIT_TAG = "hnrss";
-const ENABLE_VERBOSE_LOGGING = false; // Set to false to reduce logging
+const ENABLE_VERBOSE_LOGGING = process.env.ENABLE_VERBOSE_LOGGING === "true" ? true : false;
 let mongoClient;
 
 // Custom logging function
@@ -36,7 +36,7 @@ async function deleteOldImagesFromImageKit() {
     // Get all images with the HNRSS tag
     const listFiles = await imagekit.listFiles({
       tags: IMAGEKIT_TAG,
-      limit: 1000 // Adjust as needed
+      limit: 1000, // Adjust as needed
     });
 
     if (listFiles.length === 0) {
@@ -73,7 +73,7 @@ async function uploadScreenshotToImageKit(screenshotBuffer, filename, articleTit
       tags: [IMAGEKIT_TAG],
       folder: "/hnrss-screenshots/",
       isPrivateFile: false,
-      useUniqueFileName: true
+      useUniqueFileName: true,
     });
 
     log(`[ImageKit] Uploaded: ${filename} -> ${uploadResponse.url}`);

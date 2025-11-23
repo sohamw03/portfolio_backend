@@ -1,11 +1,11 @@
+import { createGoogleGenerativeAI } from "@ai-sdk/google";
+import { generateText, tool } from "ai";
 import cors from "cors";
 import "dotenv/config";
 import express, { json } from "express";
 import { MongoClient } from "mongodb";
-import { emailTemplate } from "./template/EmailTemplate.js";
-import { createDataStream, generateText, tool } from "ai";
-import { createGoogleGenerativeAI } from "@ai-sdk/google";
 import { z } from "zod";
+import { emailTemplate } from "./template/EmailTemplate.js";
 
 const app = express();
 
@@ -139,7 +139,7 @@ app.post("/api/chat", async (req, res) => {
     const portfolioData = await fetchPortfolioData();
 
     const result = generateText({
-      model: google("gemini-1.5-flash"),
+      model: google("gemini-flash-lite-latest"),
       messages: messages,
       system: `You are Soham's AI portfolio assistant. You can help visitors learn about Soham's work and send messages to him. When someone wants to send a message to Soham, use the send_message tool. Keep responses concise and helpful.
 
